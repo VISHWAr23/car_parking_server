@@ -22,7 +22,7 @@ import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
-import { Role } from '@common/enums/app.enums';
+import { Role } from '../common/enums/app.enums';
 
 @ApiTags('Auth')
 @Controller('auth')

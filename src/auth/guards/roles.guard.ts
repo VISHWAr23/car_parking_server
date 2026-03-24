@@ -7,7 +7,7 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { Role } from '@common/enums/app.enums';
+import { Role } from '../../common/enums/app.enums';
 import { ROLES_KEY } from '../decorators/roles.decorator';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
 

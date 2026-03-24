@@ -6,7 +6,7 @@ import { ExtractJwt, Strategy } from 'passport-jwt';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../prisma/prisma.service';
 import { JwtPayload } from '../interfaces/jwt-payload.interface';
-import { Role } from '@common/enums/app.enums';
+import { Role } from '../../common/enums/app.enums';
 
 const toRole = (value: string): Role =>
   Object.values(Role).includes(value as Role)

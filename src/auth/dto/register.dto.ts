@@ -9,7 +9,7 @@ import {
   IsEnum,
   IsOptional,
 } from 'class-validator';
-import { Role } from '@common/enums/app.enums';
+import { Role } from '../../common/enums/app.enums';
 
 export class RegisterDto {
   @ApiProperty({ example: 'john_doe', description: 'Unique username' })

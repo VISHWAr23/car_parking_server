@@ -11,7 +11,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ImageService } from './image.service';
 import { CheckInDto } from './dto/check-in.dto';
 import { CheckOutDto } from './dto/check-out.dto';
-import { ParkingStatus, VehicleType } from '@common/enums/app.enums';
+import { ParkingStatus, VehicleType } from '../common/enums/app.enums';
 
 const DEFAULT_DAILY_RATE = 250;
 const SLOT_ZONES = ['A', 'B', 'C', 'D'];

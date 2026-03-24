@@ -12,7 +12,7 @@ import {
   IsNumber,
   Min,
 } from 'class-validator';
-import { VehicleType } from '@common/enums/app.enums';
+import { VehicleType } from '../../common/enums/app.enums';
 
 export class CheckInDto {
   @ApiProperty({

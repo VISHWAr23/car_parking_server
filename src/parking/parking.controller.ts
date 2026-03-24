@@ -29,7 +29,7 @@ import {
   ApiQuery,
   ApiParam,
 } from '@nestjs/swagger';
-import { Role } from '@common/enums/app.enums';
+import { Role } from '../common/enums/app.enums';
 import { ParkingService } from './parking.service';
 import { CheckInDto } from './dto/check-in.dto';
 import { CheckOutDto } from './dto/check-out.dto';

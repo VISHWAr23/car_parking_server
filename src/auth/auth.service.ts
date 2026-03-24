@@ -13,7 +13,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
-import { Role } from '@common/enums/app.enums';
+import { Role } from '../common/enums/app.enums';
 
 const BCRYPT_ROUNDS = 12;
 
