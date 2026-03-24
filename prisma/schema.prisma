@@ -1,0 +1,39 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  username  String   @unique
+  password  String
+  role      String   @default("LABORER")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("users")
+}
+
+model ParkingLog {
+  id            String        @id @default(cuid())
+  plateNumber   String
+  vehicleType   String
+  entryPhotoUrl String?
+  entryTime     DateTime      @default(now())
+  exitTime      DateTime?
+  status        String        @default("PARKED")
+  totalAmount   Float?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([plateNumber])
+  @@index([status])
+  @@index([entryTime])
+  @@map("parking_logs")
+}
