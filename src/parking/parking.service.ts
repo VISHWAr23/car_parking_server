@@ -13,46 +13,52 @@ import { CheckInDto } from './dto/check-in.dto';
 import { CheckOutDto } from './dto/check-out.dto';
 import { ParkingStatus, VehicleType } from '@common/enums/app.enums';
 
-/** Hourly rates in local currency (IDR by default) */
-const DEFAULT_RATES: Record<VehicleType, number> = {
-  [VehicleType.MOTORCYCLE]: 2_000,
-  [VehicleType.CAR]: 5_000,
-  [VehicleType.TRUCK]: 10_000,
-};
-
-const MS_PER_HOUR = 1000 * 60 * 60;
-const MINIMUM_CHARGE_HOURS = 1;
+const DEFAULT_DAILY_RATE = 250;
+const SLOT_ZONES = ['A', 'B', 'C', 'D'];
+const SLOTS_PER_ZONE = 5;
 
 const toVehicleType = (value: string): VehicleType =>
   Object.values(VehicleType).includes(value as VehicleType)
     ? (value as VehicleType)
     : VehicleType.CAR;
 
+const calculateParkingDays = (entryTime: Date, exitTime: Date): number => {
+  const diffMs = exitTime.getTime() - entryTime.getTime();
+  const dayMs = 1000 * 60 * 60 * 24;
+  return Math.max(1, Math.ceil(diffMs / dayMs));
+};
+
+const generateSlot = (count: number): string => {
+  const zone = SLOT_ZONES[Math.floor(count / SLOTS_PER_ZONE) % SLOT_ZONES.length];
+  const num = String((count % SLOTS_PER_ZONE) + 1).padStart(2, '0');
+  return `${zone}-${num}`;
+};
+
+type UploadedPhotos = {
+  rcBookPhoto?: Express.Multer.File[];
+  frontPhoto?: Express.Multer.File[];
+  rearPhoto?: Express.Multer.File[];
+  leftPhoto?: Express.Multer.File[];
+  rightPhoto?: Express.Multer.File[];
+};
+
 @Injectable()
 export class ParkingService {
   private readonly logger = new Logger(ParkingService.name);
-  private readonly rates: Record<VehicleType, number>;
+  private readonly defaultDailyRate: number;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly imageService: ImageService,
     private readonly configService: ConfigService,
   ) {
-    this.rates = {
-      [VehicleType.MOTORCYCLE]: Number(
-        configService.get('RATE_MOTORCYCLE', DEFAULT_RATES.MOTORCYCLE),
-      ),
-      [VehicleType.CAR]: Number(
-        configService.get('RATE_CAR', DEFAULT_RATES.CAR),
-      ),
-      [VehicleType.TRUCK]: Number(
-        configService.get('RATE_TRUCK', DEFAULT_RATES.TRUCK),
-      ),
-    };
+    this.defaultDailyRate = Number(
+      configService.get('RATE_DAILY', DEFAULT_DAILY_RATE),
+    );
   }
 
   // ── Check-In ──────────────────────────────────────────────────────────────
-  async checkIn(dto: CheckInDto, file?: Express.Multer.File) {
+  async checkIn(dto: CheckInDto, files?: UploadedPhotos) {
     // Prevent duplicate active sessions for the same plate
     const existing = await this.prisma.parkingLog.findFirst({
       where: { plateNumber: dto.plateNumber.toUpperCase(), status: ParkingStatus.PARKED },
@@ -64,16 +70,31 @@ export class ParkingService {
       );
     }
 
-    let entryPhotoUrl: string | undefined;
-    if (file) {
-      entryPhotoUrl = await this.imageService.savePhoto(file);
-    }
+    const [totalLogs, rcBookPhotoUrl, frontPhotoUrl, rearPhotoUrl, leftPhotoUrl, rightPhotoUrl] =
+      await Promise.all([
+        this.prisma.parkingLog.count(),
+        files?.rcBookPhoto?.[0] ? this.imageService.savePhoto(files.rcBookPhoto[0]) : undefined,
+        files?.frontPhoto?.[0] ? this.imageService.savePhoto(files.frontPhoto[0]) : undefined,
+        files?.rearPhoto?.[0] ? this.imageService.savePhoto(files.rearPhoto[0]) : undefined,
+        files?.leftPhoto?.[0] ? this.imageService.savePhoto(files.leftPhoto[0]) : undefined,
+        files?.rightPhoto?.[0] ? this.imageService.savePhoto(files.rightPhoto[0]) : undefined,
+      ]);
+
+    const dailyRate = dto.dailyRate && dto.dailyRate > 0 ? dto.dailyRate : this.defaultDailyRate;
 
     const log = await this.prisma.parkingLog.create({
       data: {
         plateNumber: dto.plateNumber.toUpperCase(),
-        vehicleType: dto.vehicleType,
-        entryPhotoUrl,
+        vehicleType: toVehicleType(dto.vehicleType),
+        customerName: dto.customerName.trim(),
+        phoneNumber: dto.phoneNumber.trim(),
+        slotLabel: generateSlot(totalLogs),
+        rcBookPhotoUrl,
+        frontPhotoUrl,
+        rearPhotoUrl,
+        leftPhotoUrl,
+        rightPhotoUrl,
+        dailyRate,
         status: ParkingStatus.PARKED,
       },
     });
@@ -95,29 +116,26 @@ export class ParkingService {
     }
 
     const exitTime = new Date();
-    const durationMs = exitTime.getTime() - log.entryTime.getTime();
-    const durationHours = Math.max(
-      MINIMUM_CHARGE_HOURS,
-      Math.ceil(durationMs / MS_PER_HOUR),
-    );
-    const totalAmount = durationHours * this.rates[toVehicleType(log.vehicleType)];
+    const parkedDays = calculateParkingDays(log.entryTime, exitTime);
+    const totalAmount = parkedDays * (log.dailyRate || this.defaultDailyRate);
 
     const updated = await this.prisma.parkingLog.update({
       where: { id },
       data: {
         exitTime,
         status: ParkingStatus.EXITED,
+        parkedDays,
         totalAmount,
       },
     });
 
     this.logger.log(
-      `🚗 Check-out: ${log.plateNumber} | Duration: ${durationHours}h | Amount: ${totalAmount}`,
+      `🚗 Check-out: ${log.plateNumber} | Days: ${parkedDays} | Amount: ${totalAmount}`,
     );
 
     return {
       ...updated,
-      durationHours,
+      parkedDays,
     };
   }
 

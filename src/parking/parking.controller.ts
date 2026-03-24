@@ -10,14 +10,14 @@ import {
   Query,
   UseGuards,
   UseInterceptors,
-  UploadedFile,
+  UploadedFiles,
   ParseIntPipe,
   DefaultValuePipe,
   HttpCode,
   HttpStatus,
   BadRequestException,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FileFieldsInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import {
   ApiTags,
@@ -52,7 +52,15 @@ export class ParkingController {
   @Roles(Role.LABORER, Role.OWNER)
   @HttpCode(HttpStatus.CREATED)
   @UseInterceptors(
-    FileInterceptor('photo', {
+    FileFieldsInterceptor(
+      [
+        { name: 'rcBookPhoto', maxCount: 1 },
+        { name: 'frontPhoto', maxCount: 1 },
+        { name: 'rearPhoto', maxCount: 1 },
+        { name: 'leftPhoto', maxCount: 1 },
+        { name: 'rightPhoto', maxCount: 1 },
+      ],
+      {
       storage: memoryStorage(),
       limits: { fileSize: MAX_FILE_SIZE },
       fileFilter: (_req, file, cb) => {
@@ -64,17 +72,25 @@ export class ParkingController {
         }
         cb(null, true);
       },
-    }),
+      },
+    ),
   )
   @ApiConsumes('multipart/form-data')
   @ApiBody({
     schema: {
       type: 'object',
-      required: ['plateNumber', 'vehicleType'],
+      required: ['plateNumber', 'vehicleType', 'customerName', 'phoneNumber'],
       properties: {
         plateNumber: { type: 'string', example: 'B 1234 XYZ' },
-        vehicleType: { type: 'string', enum: ['MOTORCYCLE', 'CAR', 'TRUCK'] },
-        photo: { type: 'string', format: 'binary' },
+        vehicleType: { type: 'string', enum: ['CAR'] },
+        customerName: { type: 'string', example: 'Rohan Mehta' },
+        phoneNumber: { type: 'string', example: '9876543210' },
+        dailyRate: { type: 'number', example: 250 },
+        rcBookPhoto: { type: 'string', format: 'binary' },
+        frontPhoto: { type: 'string', format: 'binary' },
+        rearPhoto: { type: 'string', format: 'binary' },
+        leftPhoto: { type: 'string', format: 'binary' },
+        rightPhoto: { type: 'string', format: 'binary' },
       },
     },
   })
@@ -83,9 +99,16 @@ export class ParkingController {
   @ApiResponse({ status: 400, description: 'Vehicle already has an active session' })
   async checkIn(
     @Body() dto: CheckInDto,
-    @UploadedFile() file?: Express.Multer.File,
+    @UploadedFiles()
+    files?: {
+      rcBookPhoto?: Express.Multer.File[];
+      frontPhoto?: Express.Multer.File[];
+      rearPhoto?: Express.Multer.File[];
+      leftPhoto?: Express.Multer.File[];
+      rightPhoto?: Express.Multer.File[];
+    },
   ) {
-    return this.parkingService.checkIn(dto, file);
+    return this.parkingService.checkIn(dto, files);
   }
 
   // ── PATCH /parking/exit/:id  (LABORER + OWNER) ────────────────────────────
@@ -102,7 +125,7 @@ export class ParkingController {
 
   // ── GET /parking/active  (OWNER only) ────────────────────────────────────
   @Get('active')
-  @Roles(Role.OWNER)
+  @Roles(Role.LABORER, Role.OWNER)
   @ApiOperation({ summary: 'List all currently parked vehicles' })
   @ApiResponse({ status: 200, description: 'Active sessions returned' })
   async getActiveSessions() {
@@ -111,7 +134,7 @@ export class ParkingController {
 
   // ── GET /parking/stats  (OWNER only) ─────────────────────────────────────
   @Get('stats')
-  @Roles(Role.OWNER)
+  @Roles(Role.LABORER, Role.OWNER)
   @ApiQuery({
     name: 'date',
     required: false,
@@ -126,7 +149,7 @@ export class ParkingController {
 
   // ── GET /parking/history  (OWNER only) ───────────────────────────────────
   @Get('history')
-  @Roles(Role.OWNER)
+  @Roles(Role.LABORER, Role.OWNER)
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
   @ApiQuery({ name: 'plateNumber', required: false, type: String })

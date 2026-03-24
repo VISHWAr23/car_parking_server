@@ -5,7 +5,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -24,7 +24,16 @@ model ParkingLog {
   id            String        @id @default(cuid())
   plateNumber   String
   vehicleType   String
-  entryPhotoUrl String?
+  customerName  String
+  phoneNumber   String
+  slotLabel     String
+  rcBookPhotoUrl String?
+  frontPhotoUrl String?
+  rearPhotoUrl  String?
+  leftPhotoUrl  String?
+  rightPhotoUrl String?
+  dailyRate     Float         @default(250)
+  parkedDays    Int?
   entryTime     DateTime      @default(now())
   exitTime      DateTime?
   status        String        @default("PARKED")
