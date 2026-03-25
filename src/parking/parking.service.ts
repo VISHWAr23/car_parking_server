@@ -13,7 +13,9 @@ import { CheckInDto } from './dto/check-in.dto';
 import { CheckOutDto } from './dto/check-out.dto';
 import { ParkingStatus, VehicleType } from '../common/enums/app.enums';
 
-const DEFAULT_DAILY_RATE = 250;
+const MONTHLY_RENT_PER_CAR = 1100;
+const BILLING_CYCLE_DAYS = 30;
+const PRORATED_DAILY_RATE = MONTHLY_RENT_PER_CAR / BILLING_CYCLE_DAYS;
 const SLOT_ZONES = ['A', 'B', 'C', 'D'];
 const SLOTS_PER_ZONE = 5;
 
@@ -45,16 +47,13 @@ type UploadedPhotos = {
 @Injectable()
 export class ParkingService {
   private readonly logger = new Logger(ParkingService.name);
-  private readonly defaultDailyRate: number;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly imageService: ImageService,
-    private readonly configService: ConfigService,
+    private readonly _configService: ConfigService,
   ) {
-    this.defaultDailyRate = Number(
-      configService.get('RATE_DAILY', DEFAULT_DAILY_RATE),
-    );
+    // Rate is fixed by business rule: ₹1100 per month for car parking.
   }
 
   // ── Check-In ──────────────────────────────────────────────────────────────
@@ -80,8 +79,6 @@ export class ParkingService {
         files?.rightPhoto?.[0] ? this.imageService.savePhoto(files.rightPhoto[0]) : undefined,
       ]);
 
-    const dailyRate = dto.dailyRate && dto.dailyRate > 0 ? dto.dailyRate : this.defaultDailyRate;
-
     const log = await this.prisma.parkingLog.create({
       data: {
         plateNumber: dto.plateNumber.toUpperCase(),
@@ -94,7 +91,7 @@ export class ParkingService {
         rearPhotoUrl,
         leftPhotoUrl,
         rightPhotoUrl,
-        dailyRate,
+        dailyRate: PRORATED_DAILY_RATE,
         status: ParkingStatus.PARKED,
       },
     });
@@ -117,7 +114,7 @@ export class ParkingService {
 
     const exitTime = new Date();
     const parkedDays = calculateParkingDays(log.entryTime, exitTime);
-    const totalAmount = parkedDays * (log.dailyRate || this.defaultDailyRate);
+    const totalAmount = Math.round((parkedDays * MONTHLY_RENT_PER_CAR) / BILLING_CYCLE_DAYS);
 
     const updated = await this.prisma.parkingLog.update({
       where: { id },
@@ -130,7 +127,7 @@ export class ParkingService {
     });
 
     this.logger.log(
-      `🚗 Check-out: ${log.plateNumber} | Days: ${parkedDays} | Amount: ${totalAmount}`,
+      `🚗 Check-out: ${log.plateNumber} | Days: ${parkedDays} | MonthlyPlan: ₹${MONTHLY_RENT_PER_CAR} | Amount: ₹${totalAmount}`,
     );
 
     return {

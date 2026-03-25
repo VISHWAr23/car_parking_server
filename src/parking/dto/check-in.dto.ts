@@ -8,9 +8,6 @@ import {
   Matches,
   MaxLength,
   MinLength,
-  IsOptional,
-  IsNumber,
-  Min,
 } from 'class-validator';
 import { VehicleType } from '../../common/enums/app.enums';
 
@@ -59,13 +56,4 @@ export class CheckInDto {
   })
   phoneNumber: string;
 
-  @ApiProperty({
-    example: 250,
-    required: false,
-    description: 'Daily rent amount; defaults from server config when omitted',
-  })
-  @IsOptional()
-  @IsNumber()
-  @Min(1)
-  dailyRate?: number;
 }
