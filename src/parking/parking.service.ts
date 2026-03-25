@@ -190,7 +190,7 @@ export class ParkingService {
   // ── Known Cars (for entry autocomplete) ──────────────────────────────────
   async getKnownCars(query = '', limit = 10) {
     const normalizedQuery = query.trim().toUpperCase();
-    const safeLimit = Math.max(1, Math.min(limit, 30));
+    const safeLimit = Math.max(1, Math.min(limit, 200));
 
     const logs = await this.prisma.parkingLog.findMany({
       where: normalizedQuery
@@ -209,7 +209,7 @@ export class ParkingService {
         entryTime: true,
       },
       orderBy: { entryTime: 'desc' },
-      take: 200,
+      take: 1000,
     });
 
     const deduped = new Map<string, (typeof logs)[number]>();
