@@ -85,6 +85,7 @@ export class ParkingController {
         vehicleType: { type: 'string', enum: ['CAR'] },
         customerName: { type: 'string', example: 'Rohan Mehta' },
         phoneNumber: { type: 'string', example: '9876543210' },
+        reusePreviousImages: { type: 'boolean', example: true },
         rcBookPhoto: { type: 'string', format: 'binary' },
         frontPhoto: { type: 'string', format: 'binary' },
         rearPhoto: { type: 'string', format: 'binary' },

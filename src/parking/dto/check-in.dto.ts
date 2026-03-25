@@ -1,6 +1,7 @@
 // src/parking/dto/check-in.dto.ts
 
 import { ApiProperty } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   IsString,
   IsNotEmpty,
@@ -8,6 +9,8 @@ import {
   Matches,
   MaxLength,
   MinLength,
+  IsBoolean,
+  IsOptional,
 } from 'class-validator';
 import { VehicleType } from '../../common/enums/app.enums';
 
@@ -55,5 +58,15 @@ export class CheckInDto {
     message: 'Phone number must contain digits only',
   })
   phoneNumber: string;
+
+  @ApiProperty({
+    required: false,
+    example: true,
+    description: 'When true, missing side photos are reused from the latest previous record of this car',
+  })
+  @IsOptional()
+  @Transform(({ value }) => value === true || value === 'true')
+  @IsBoolean()
+  reusePreviousImages?: boolean;
 
 }

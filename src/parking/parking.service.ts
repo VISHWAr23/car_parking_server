@@ -67,9 +67,11 @@ export class ParkingService {
 
   // ── Check-In ──────────────────────────────────────────────────────────────
   async checkIn(dto: CheckInDto, files?: UploadedPhotos) {
+    const normalizedPlate = dto.plateNumber.toUpperCase();
+
     // Prevent duplicate active sessions for the same plate
     const existing = await this.prisma.parkingLog.findFirst({
-      where: { plateNumber: dto.plateNumber.toUpperCase(), status: ParkingStatus.PARKED },
+      where: { plateNumber: normalizedPlate, status: ParkingStatus.PARKED },
     });
 
     if (existing) {
@@ -78,9 +80,19 @@ export class ParkingService {
       );
     }
 
-    const [totalLogs, rcBookPhotoUrl, frontPhotoUrl, rearPhotoUrl, leftPhotoUrl, rightPhotoUrl] =
+    const [totalLogs, latestKnownRecord, rcBookPhotoUrl, frontPhotoUrl, rearPhotoUrl, leftPhotoUrl, rightPhotoUrl] =
       await Promise.all([
         this.prisma.parkingLog.count(),
+        this.prisma.parkingLog.findFirst({
+          where: { plateNumber: normalizedPlate },
+          orderBy: { entryTime: 'desc' },
+          select: {
+            frontPhotoUrl: true,
+            rearPhotoUrl: true,
+            leftPhotoUrl: true,
+            rightPhotoUrl: true,
+          },
+        }),
         files?.rcBookPhoto?.[0] ? this.imageService.savePhoto(files.rcBookPhoto[0]) : undefined,
         files?.frontPhoto?.[0] ? this.imageService.savePhoto(files.frontPhoto[0]) : undefined,
         files?.rearPhoto?.[0] ? this.imageService.savePhoto(files.rearPhoto[0]) : undefined,
@@ -88,18 +100,25 @@ export class ParkingService {
         files?.rightPhoto?.[0] ? this.imageService.savePhoto(files.rightPhoto[0]) : undefined,
       ]);
 
+    const reusePreviousImages = dto.reusePreviousImages === true;
+
+    const resolvedFrontPhotoUrl = frontPhotoUrl ?? (reusePreviousImages ? latestKnownRecord?.frontPhotoUrl : undefined);
+    const resolvedRearPhotoUrl = rearPhotoUrl ?? (reusePreviousImages ? latestKnownRecord?.rearPhotoUrl : undefined);
+    const resolvedLeftPhotoUrl = leftPhotoUrl ?? (reusePreviousImages ? latestKnownRecord?.leftPhotoUrl : undefined);
+    const resolvedRightPhotoUrl = rightPhotoUrl ?? (reusePreviousImages ? latestKnownRecord?.rightPhotoUrl : undefined);
+
     const log = await this.prisma.parkingLog.create({
       data: {
-        plateNumber: dto.plateNumber.toUpperCase(),
+        plateNumber: normalizedPlate,
         vehicleType: toVehicleType(dto.vehicleType),
         customerName: dto.customerName.trim(),
         phoneNumber: dto.phoneNumber.trim(),
         slotLabel: generateSlot(totalLogs),
         rcBookPhotoUrl,
-        frontPhotoUrl,
-        rearPhotoUrl,
-        leftPhotoUrl,
-        rightPhotoUrl,
+        frontPhotoUrl: resolvedFrontPhotoUrl,
+        rearPhotoUrl: resolvedRearPhotoUrl,
+        leftPhotoUrl: resolvedLeftPhotoUrl,
+        rightPhotoUrl: resolvedRightPhotoUrl,
         dailyRate: calculateDailyRate(MONTHLY_RENT_PER_CAR, new Date()),
         status: ParkingStatus.PARKED,
       },
