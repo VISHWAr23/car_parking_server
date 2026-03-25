@@ -14,8 +14,6 @@ import { CheckOutDto } from './dto/check-out.dto';
 import { ParkingStatus, VehicleType } from '../common/enums/app.enums';
 
 const MONTHLY_RENT_PER_CAR = 1100;
-const BILLING_CYCLE_DAYS = 30;
-const PRORATED_DAILY_RATE = MONTHLY_RENT_PER_CAR / BILLING_CYCLE_DAYS;
 const SLOT_ZONES = ['A', 'B', 'C', 'D'];
 const SLOTS_PER_ZONE = 5;
 
@@ -28,6 +26,17 @@ const calculateParkingDays = (entryTime: Date, exitTime: Date): number => {
   const diffMs = exitTime.getTime() - entryTime.getTime();
   const dayMs = 1000 * 60 * 60 * 24;
   return Math.max(1, Math.ceil(diffMs / dayMs));
+};
+
+const getDaysInMonth = (date: Date): number => {
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  return new Date(year, month + 1, 0).getDate();
+};
+
+const calculateDailyRate = (monthlyRent: number, date: Date): number => {
+  const daysInMonth = getDaysInMonth(date);
+  return monthlyRent / daysInMonth;
 };
 
 const generateSlot = (count: number): string => {
@@ -91,7 +100,7 @@ export class ParkingService {
         rearPhotoUrl,
         leftPhotoUrl,
         rightPhotoUrl,
-        dailyRate: PRORATED_DAILY_RATE,
+        dailyRate: calculateDailyRate(MONTHLY_RENT_PER_CAR, new Date()),
         status: ParkingStatus.PARKED,
       },
     });
@@ -114,7 +123,8 @@ export class ParkingService {
 
     const exitTime = new Date();
     const parkedDays = calculateParkingDays(log.entryTime, exitTime);
-    const totalAmount = Math.round((parkedDays * MONTHLY_RENT_PER_CAR) / BILLING_CYCLE_DAYS);
+    const daysInCurrentMonth = getDaysInMonth(exitTime);
+    const totalAmount = Math.round((parkedDays * MONTHLY_RENT_PER_CAR) / daysInCurrentMonth);
 
     const updated = await this.prisma.parkingLog.update({
       where: { id },
@@ -127,7 +137,7 @@ export class ParkingService {
     });
 
     this.logger.log(
-      `🚗 Check-out: ${log.plateNumber} | Days: ${parkedDays} | MonthlyPlan: ₹${MONTHLY_RENT_PER_CAR} | Amount: ₹${totalAmount}`,
+      `🚗 Check-out: ${log.plateNumber} | Days: ${parkedDays} | MonthDays: ${daysInCurrentMonth} | MonthlyPlan: ₹${MONTHLY_RENT_PER_CAR} | Amount: ₹${totalAmount}`,
     );
 
     return {
@@ -173,6 +183,55 @@ export class ParkingService {
         limit,
         totalPages: Math.ceil(total / limit),
       },
+      records,
+    };
+  }
+
+  // ── Known Cars (for entry autocomplete) ──────────────────────────────────
+  async getKnownCars(query = '', limit = 10) {
+    const normalizedQuery = query.trim().toUpperCase();
+    const safeLimit = Math.max(1, Math.min(limit, 30));
+
+    const logs = await this.prisma.parkingLog.findMany({
+      where: normalizedQuery
+        ? {
+            plateNumber: {
+              contains: normalizedQuery,
+              mode: 'insensitive',
+            },
+          }
+        : undefined,
+      select: {
+        plateNumber: true,
+        customerName: true,
+        phoneNumber: true,
+        vehicleType: true,
+        entryTime: true,
+      },
+      orderBy: { entryTime: 'desc' },
+      take: 200,
+    });
+
+    const deduped = new Map<string, (typeof logs)[number]>();
+    for (const log of logs) {
+      if (!deduped.has(log.plateNumber)) {
+        deduped.set(log.plateNumber, log);
+      }
+      if (deduped.size >= safeLimit) {
+        break;
+      }
+    }
+
+    const records = Array.from(deduped.values()).map((log) => ({
+      plateNumber: log.plateNumber,
+      customerName: log.customerName,
+      phoneNumber: log.phoneNumber,
+      vehicleType: log.vehicleType,
+      lastSeenAt: log.entryTime,
+    }));
+
+    return {
+      count: records.length,
       records,
     };
   }

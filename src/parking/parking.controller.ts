@@ -161,4 +161,18 @@ export class ParkingController {
   ) {
     return this.parkingService.getHistory(page, Math.min(limit, 100), plateNumber);
   }
+
+  // ── GET /parking/known-cars  (LABORER + OWNER) ──────────────────────────
+  @Get('known-cars')
+  @Roles(Role.LABORER, Role.OWNER)
+  @ApiQuery({ name: 'query', required: false, type: String, description: 'Plate number search text' })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 10 })
+  @ApiOperation({ summary: 'List previously parked cars for entry autocomplete' })
+  @ApiResponse({ status: 200, description: 'Known car suggestions returned' })
+  async getKnownCars(
+    @Query('query') query?: string,
+    @Query('limit', new DefaultValuePipe(10), ParseIntPipe) limit: number = 10,
+  ) {
+    return this.parkingService.getKnownCars(query ?? '', limit);
+  }
 }
