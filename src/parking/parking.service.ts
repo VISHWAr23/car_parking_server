@@ -87,6 +87,7 @@ export class ParkingService {
           where: { plateNumber: normalizedPlate },
           orderBy: { entryTime: 'desc' },
           select: {
+            rcBookPhotoUrl: true,
             frontPhotoUrl: true,
             rearPhotoUrl: true,
             leftPhotoUrl: true,
@@ -102,6 +103,8 @@ export class ParkingService {
 
     const reusePreviousImages = dto.reusePreviousImages === true;
 
+    const resolvedRcBookPhotoUrl = rcBookPhotoUrl ?? (reusePreviousImages ? latestKnownRecord?.rcBookPhotoUrl : undefined);
+
     const resolvedFrontPhotoUrl = frontPhotoUrl ?? (reusePreviousImages ? latestKnownRecord?.frontPhotoUrl : undefined);
     const resolvedRearPhotoUrl = rearPhotoUrl ?? (reusePreviousImages ? latestKnownRecord?.rearPhotoUrl : undefined);
     const resolvedLeftPhotoUrl = leftPhotoUrl ?? (reusePreviousImages ? latestKnownRecord?.leftPhotoUrl : undefined);
@@ -114,7 +117,7 @@ export class ParkingService {
         customerName: dto.customerName.trim(),
         phoneNumber: dto.phoneNumber.trim(),
         slotLabel: generateSlot(totalLogs),
-        rcBookPhotoUrl,
+        rcBookPhotoUrl: resolvedRcBookPhotoUrl,
         frontPhotoUrl: resolvedFrontPhotoUrl,
         rearPhotoUrl: resolvedRearPhotoUrl,
         leftPhotoUrl: resolvedLeftPhotoUrl,
