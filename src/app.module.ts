@@ -7,8 +7,10 @@ import { AuthModule } from './auth/auth.module';
 import { ParkingModule } from './parking/parking.module';
 import { ReportsModule } from './reports/reports.module';
 import { PrismaModule } from './prisma/prisma.module';
+import { AppController } from './app.controller';
 
 @Module({
+  controllers: [AppController],
   imports: [
     // ── Configuration (makes process.env available app-wide) ──────────────
     ConfigModule.forRoot({ isGlobal: true, envFilePath: '.env' }),

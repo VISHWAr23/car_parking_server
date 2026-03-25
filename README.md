@@ -148,6 +148,11 @@ GET   /api/v1/parking/history       Paginated history (🔒 OWNER)
 GET   /api/v1/reports/daily         On-demand daily report (🔒 OWNER)
 ```
 
+### System
+```
+GET   /api/v1/health                Public health check (for uptime monitors)
+```
+
 ---
 
 ## 💰 Pricing Configuration
@@ -224,6 +229,36 @@ Change the timezone in `reports.service.ts` to match your server location.
 - [ ] Add rate limiting (`@nestjs/throttler`)
 - [ ] Set `ALLOWED_ORIGINS` for CORS
 - [ ] Remove `/auth/register` from public access (require OWNER token)
+
+---
+
+## 💤 Prevent Cold Starts (Free)
+
+If your backend is on a free tier that sleeps when idle, use an external uptime monitor to ping this endpoint every 14 minutes:
+
+```
+GET https://car-parking-server.onrender.com/api/v1/health
+```
+
+### Option A: UptimeRobot (free)
+1. Create a monitor at https://uptimerobot.com
+2. Monitor type: `HTTP(s)`
+3. URL: `https://car-parking-server.onrender.com/api/v1/health`
+4. Monitoring interval: `5 minutes` (free plan minimum, still works well)
+
+### Option B: Cron-job.org (free)
+1. Create a cron job at https://cron-job.org
+2. URL: `https://car-parking-server.onrender.com/api/v1/health`
+3. Method: `GET`
+4. Schedule: every `14` minutes
+
+Example cron expression for every 14 minutes:
+
+```cron
+*/14 * * * *
+```
+
+This keeps the service warm and reduces cold-start delays for users.
 
 ---
 
